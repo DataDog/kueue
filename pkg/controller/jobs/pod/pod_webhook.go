@@ -56,8 +56,7 @@ const (
 	SuspendedByParentAnnotation  = "kueue.x-k8s.io/pod-suspending-parent"
 	RoleHashAnnotation           = "kueue.x-k8s.io/role-hash"
 	RetriableInGroupAnnotation   = "kueue.x-k8s.io/retriable-in-group"
-	// TODO: Not sure about the naming of this annotation
-	StandalonePodAnnotation = "kueue.x-k8s.io/standalone-pod"
+	StandalonePodAnnotation      = "kueue.datadoghq.com/standalone-pod"
 )
 
 var (
