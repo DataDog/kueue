@@ -233,7 +233,7 @@ func NewReconciler(
 
 func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Request, job GenericJob) (result ctrl.Result, err error) {
 	object := job.Object()
-	log := ctrl.LoggerFrom(ctx).WithValues("job", req.String(), "gvk", job.GVK())
+	log := ctrl.LoggerFrom(ctx).WithValues("job", req.String(), "gvk", job.GVK(), "name", object.GetName())
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	defer func() {
@@ -249,12 +249,14 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 	}
 
 	if jws, implements := job.(JobWithSkip); implements {
+		log.V(2).Info("[pri]  skipping job")
 		if jws.Skip() {
 			return ctrl.Result{}, nil
 		}
 	}
 
 	if dropFinalizers {
+		log.V(2).Info("[pri] removing finalizers")
 		// Remove workload finalizer
 		workloads := &kueue.WorkloadList{}
 
@@ -282,6 +284,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 
 		// Remove job finalizer
 		if !object.GetDeletionTimestamp().IsZero() {
+			log.V(2).Info("[pri] removing finalizers")
 			if err = r.finalizeJob(ctx, job); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -329,12 +332,15 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 
 	// if this is a non-toplevel job, suspend the job if its ancestor's workload is not found or not admitted.
 	if !isTopLevelJob {
+		log.V(2).Info("[pri] non top level job")
 		_, _, finished := job.Finished()
 		if !finished && !job.IsSuspended() {
+			log.V(2).Info("[pri] non top level job is not finished and is not suspended")
 			if ancestorWorkload, err := r.getWorkloadForObject(ctx, ancestorJob); err != nil {
 				log.Error(err, "couldn't get an ancestor job workload")
 				return ctrl.Result{}, err
 			} else if ancestorWorkload == nil || !workload.IsAdmitted(ancestorWorkload) {
+				log.V(2).Info("[pri] non top level job is not admitted")
 				if err := clientutil.Patch(ctx, r.client, object, true, func() (bool, error) {
 					job.Suspend()
 					return true, nil
@@ -369,12 +375,20 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 	// If there's no workload exists and job is unsuspended, we'll stop it immediately.
 	wl, err := r.ensureOneWorkload(ctx, job, object)
 	if err != nil {
+		log.Error(err, "[pri] unable to ensure one workload")
 		return ctrl.Result{}, err
+	}
+
+	if wl != nil {
+		log.V(2).Info("[pri]Ensured one workload with name %s", wl.GetName())
+	} else {
+		log.V(2).Info("[pri] Ensured one workload with nil workload")
 	}
 
 	// Update workload conditions if implemented JobWithCustomWorkloadConditions interface.
 	if jobCond, ok := job.(JobWithCustomWorkloadConditions); wl != nil && ok {
 		if conditions, updated := jobCond.CustomWorkloadConditions(wl); updated {
+			log.V(2).Info("[pri] Updating custom workload conditions")
 			wlPatch := workload.BaseSSAWorkload(wl)
 			wlPatch.Status.Conditions = conditions
 			return reconcile.Result{}, r.client.Status().Patch(ctx, wlPatch, client.Apply,
@@ -383,6 +397,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 	}
 
 	if wl != nil && apimeta.IsStatusConditionTrue(wl.Status.Conditions, kueue.WorkloadFinished) {
+		log.V(2).Info("[pri] Job finished")
 		if err := r.finalizeJob(ctx, job); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -395,7 +410,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 	// 1.1 If the workload is pending deletion, suspend the job if needed
 	// and drop the finalizer.
 	if wl != nil && !wl.DeletionTimestamp.IsZero() {
-		log.V(2).Info("The workload is marked for deletion")
+		log.V(2).Info("[pri] The workload is marked for deletion")
 		err := r.stopJob(ctx, job, wl, StopReasonWorkloadDeleted, "Workload is deleted")
 		if err != nil {
 			log.Error(err, "Suspending job with deleted workload")
@@ -407,7 +422,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 
 	// 2. handle job is finished.
 	if message, success, finished := job.Finished(); finished {
-		log.V(3).Info("The workload is already finished")
+		log.V(3).Info("[pri] The workload is already finished")
 		if wl != nil && !apimeta.IsStatusConditionTrue(wl.Status.Conditions, kueue.WorkloadFinished) {
 			reason := kueue.WorkloadFinishedReasonSucceeded
 			if !success {
@@ -431,7 +446,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 
 	// 3. handle workload is nil.
 	if wl == nil {
-		log.V(3).Info("The workload is nil, handle job with no workload")
+		log.V(3).Info("[pri] The workload is nil, handle job with no workload")
 		err := r.handleJobWithNoWorkload(ctx, job, object)
 		if err != nil {
 			if apierrors.IsAlreadyExists(err) {
@@ -449,7 +464,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 
 	// 4. update reclaimable counts if implemented by the job
 	if jobRecl, implementsReclaimable := job.(JobWithReclaimablePods); implementsReclaimable {
-		log.V(3).Info("update reclaimable counts if implemented by the job")
+		log.V(3).Info("[pri] update reclaimable counts if implemented by the job")
 		reclPods, err := jobRecl.ReclaimablePods()
 		if err != nil {
 			log.Error(err, "Getting reclaimable pods")
@@ -469,7 +484,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 	// 5. handle WaitForPodsReady only for a standalone job.
 	// handle a job when waitForPodsReady is enabled, and it is the main job
 	if r.waitForPodsReady {
-		log.V(3).Info("Handling a job when waitForPodsReady is enabled")
+		log.V(3).Info("[pri] Handling a job when waitForPodsReady is enabled")
 		condition := generatePodsReadyCondition(log, job, wl)
 		if !workload.HasConditionWithTypeAndReason(wl, &condition) {
 			log.V(3).Info("Updating the PodsReady condition", "reason", condition.Reason, "status", condition.Status)
@@ -486,7 +501,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 
 	// 6. handle eviction
 	if evCond := apimeta.FindStatusCondition(wl.Status.Conditions, kueue.WorkloadEvicted); evCond != nil && evCond.Status == metav1.ConditionTrue {
-		log.V(3).Info("Handling a job with evicted condition")
+		log.V(3).Info("[pri] Handling a job with evicted condition")
 		if err := r.stopJob(ctx, job, wl, StopReasonWorkloadEvicted, evCond.Message); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -508,12 +523,13 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 
 	// 7. handle job is suspended.
 	if job.IsSuspended() {
+		log.V(2).Info("[pri] The job is suspended, clear the workloads admission")
 		// start the job if the workload has been admitted, and the job is still suspended
 		if workload.IsAdmitted(wl) {
-			log.V(2).Info("Job admitted, unsuspending")
+			log.V(2).Info("[pri] Job admitted, unsuspending")
 			err := r.startJob(ctx, job, object, wl)
 			if err != nil {
-				log.Error(err, "Unsuspending job")
+				log.Error(err, "[pri] Unsuspending job")
 				if podset.IsPermanent(err) {
 					// Mark the workload as finished with failure since the is no point to retry.
 					errUpdateStatus := workload.UpdateStatus(ctx, r.client, wl, kueue.WorkloadFinished, metav1.ConditionTrue, FailedToStartFinishedReason, err.Error(), constants.JobControllerName, r.clock)
@@ -525,10 +541,13 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 			}
 			return ctrl.Result{}, err
 		}
+		log.V(2).Info("[pri] The job is suspended, but the workload is not admitted")
 
 		if workload.HasQuotaReservation(wl) {
+			log.V(2).Info("[pri] Job has quota reservation, record admission check update")
 			r.recordAdmissionCheckUpdate(wl, job)
 		}
+
 		// update queue name if changed.
 		q := QueueName(job)
 		if wl.Spec.QueueName != q {
@@ -540,14 +559,14 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 			}
 			return ctrl.Result{}, err
 		}
-		log.V(3).Info("Job is suspended and workload not yet admitted by a clusterQueue, nothing to do")
+		log.V(3).Info("[pri] Job is suspended and workload not yet admitted by a clusterQueue, nothing to do")
 		return ctrl.Result{}, nil
 	}
 
 	// 8. handle job is unsuspended.
 	if !workload.IsAdmitted(wl) {
 		// the job must be suspended if the workload is not yet admitted.
-		log.V(2).Info("Running job is not admitted by a cluster queue, suspending")
+		log.V(2).Info("[pri] Running job is not admitted by a cluster queue, suspending")
 		err := r.stopJob(ctx, job, wl, StopReasonNotAdmitted, "Not admitted by cluster queue")
 		if err != nil {
 			log.Error(err, "Suspending job with non admitted workload")
@@ -556,7 +575,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 	}
 
 	// workload is admitted and job is running, nothing to do.
-	log.V(3).Info("Job running with admitted workload, nothing to do")
+	log.V(3).Info("[pri] Job running with admitted workload, nothing to do")
 	return ctrl.Result{}, nil
 }
 

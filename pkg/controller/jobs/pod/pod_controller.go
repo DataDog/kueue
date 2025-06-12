@@ -1103,7 +1103,7 @@ func (p *Pod) FindMatchingWorkloads(ctx context.Context, c client.Client, r reco
 		if apierrors.IsNotFound(err) {
 			return nil, nil, nil
 		}
-		log.Error(err, "Unable to get related workload")
+		log.Error(err, "[pri] Unable to get related workload")
 		return nil, nil, err
 	}
 
@@ -1115,6 +1115,7 @@ func (p *Pod) FindMatchingWorkloads(ctx context.Context, c client.Client, r reco
 	// Cleanup excess pods for each workload pod set (role)
 	activePods := p.runnableOrSucceededPods()
 	inactivePods := p.notRunnableNorSucceededPods()
+	log.V(2).Info("[pri] Found pods", "active", len(activePods), "inactive", len(inactivePods))
 
 	var absentPods int
 	var keptPods []corev1.Pod
@@ -1165,6 +1166,7 @@ func (p *Pod) FindMatchingWorkloads(ctx context.Context, c client.Client, r reco
 	}
 
 	if len(keptPods) == 0 || !p.equivalentToWorkload(workload, jobPodSets) {
+		log.V(2).Info("[pri] jobPodSets is not equivalent to workload")
 		return nil, []*kueue.Workload{workload}, nil
 	}
 
