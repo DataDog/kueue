@@ -1115,7 +1115,11 @@ func (p *Pod) FindMatchingWorkloads(ctx context.Context, c client.Client, r reco
 	// Cleanup excess pods for each workload pod set (role)
 	activePods := p.runnableOrSucceededPods()
 	inactivePods := p.notRunnableNorSucceededPods()
-	log.V(2).Info("[pri] Found pods", "active", len(activePods), "inactive", len(inactivePods))
+	log.V(2).Info("[pri] Found pods",
+		"active", len(activePods),
+		"activePods", utilslices.Map(activePods, func(p *corev1.Pod) string { return p.Name }),
+		"inactive", len(inactivePods),
+		"inactivePods", utilslices.Map(inactivePods, func(p *corev1.Pod) string { return p.Name }))
 
 	var absentPods int
 	var keptPods []corev1.Pod

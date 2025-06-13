@@ -130,6 +130,7 @@ func (w *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 
 	_, suspend := pod.pod.GetAnnotations()[podconstants.SuspendedByParentAnnotation]
 	if !suspend {
+		log.V(5).Info("[pri]Pod is not suspended by parent", "pod", pod.pod.Name)
 		// Namespace filtering
 		ns := corev1.Namespace{}
 		err := w.client.Get(ctx, client.ObjectKey{Name: pod.pod.GetNamespace()}, &ns)
@@ -188,6 +189,7 @@ func (w *PodWebhook) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	if suspend {
+		log.V(5).Info("[pri]Pod is suspended by parent", "pod", pod.pod.Name)
 		controllerutil.AddFinalizer(pod.Object(), podconstants.PodFinalizer)
 		gate(&pod.pod)
 
