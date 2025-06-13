@@ -371,7 +371,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 
 	log.V(2).Info("Reconciling Job")
 
-	log.V(2).Info("[pri] Reconciling Job", "job", object.GetName())
+	log.V(2).Info("[pri] Reconciling Job", "underlying_object", job.Object().GetName())
 
 	// 1. make sure there is only a single existing instance of the workload.
 	// If there's no workload exists and job is unsuspended, we'll stop it immediately.
