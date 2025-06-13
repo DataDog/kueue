@@ -233,7 +233,7 @@ func NewReconciler(
 
 func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Request, job GenericJob) (result ctrl.Result, err error) {
 	object := job.Object()
-	log := ctrl.LoggerFrom(ctx).WithValues("job", req.String(), "gvk", job.GVK(), "name", object.GetName(), "underlying_object", job.Object().GetName())
+	log := ctrl.LoggerFrom(ctx).WithValues("job", req.String(), "gvk", job.GVK(), "name", object.GetName())
 	ctx = ctrl.LoggerInto(ctx, log)
 
 	defer func() {
@@ -243,6 +243,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 	dropFinalizers := false
 	if cJob, isComposable := job.(ComposableJob); isComposable {
 		dropFinalizers, err = cJob.Load(ctx, r.client, &req.NamespacedName)
+		log.V(2).Info("[pri] called Load and dropFinalizers is", "dropFinalizers", dropFinalizers)
 	} else {
 		err = r.client.Get(ctx, req.NamespacedName, object)
 		dropFinalizers = apierrors.IsNotFound(err) || !object.GetDeletionTimestamp().IsZero()
@@ -369,6 +370,7 @@ func (r *JobReconciler) ReconcileGenericJob(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	log = log.WithValues("underlying_object", job.Object().GetName())
 	log.V(2).Info("[pri]Reconciling Job")
 
 	// 1. make sure there is only a single existing instance of the workload.

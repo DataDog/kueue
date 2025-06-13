@@ -595,6 +595,7 @@ func getRoleHash(p corev1.Pod) (string, error) {
 
 // Load loads all pods in the group
 func (p *Pod) Load(ctx context.Context, c client.Client, key *types.NamespacedName) (removeFinalizers bool, err error) {
+	log := ctrl.LoggerFrom(ctx)
 	nsKey := strings.Split(key.Namespace, "/")
 
 	if len(nsKey) == 1 {
@@ -602,6 +603,7 @@ func (p *Pod) Load(ctx context.Context, c client.Client, key *types.NamespacedNa
 			return apierrors.IsNotFound(err), err
 		}
 		p.isFound = true
+		log.Info("[pri] Loaded pod", "name", p.pod.Name)
 
 		// If the key.Namespace doesn't contain a "group/" prefix, even though
 		// the pod has a group name, there's something wrong with the event handler.
@@ -631,6 +633,10 @@ func (p *Pod) Load(ctx context.Context, c client.Client, key *types.NamespacedNa
 		p.isFound = true
 		p.pod = p.list.Items[0]
 		key.Name = p.pod.Name
+		log.Info("[pri] Loaded pod group", "groupName", key.Name, "podCount", len(p.list.Items))
+		for _, pod := range p.list.Items {
+			log.Info("[pri] Pod in group", "name", pod.Name)
+		}
 	}
 
 	// If none of the pods in group are found,
