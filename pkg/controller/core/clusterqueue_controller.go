@@ -357,7 +357,7 @@ func recordResourceMetrics(cq *kueue.ClusterQueue) {
 				nominal := resource.QuantityToFloat(&r.NominalQuota)
 				borrow := resource.QuantityToFloat(r.BorrowingLimit)
 				lend := resource.QuantityToFloat(r.LendingLimit)
-				metrics.ReportClusterQueueQuotas(cq.Spec.Cohort, cq.Name, string(fq.Name), string(r.Name), nominal, borrow, lend)
+				metrics.ReportClusterQueueQuotas(cq.Spec.Cohort, *cq, string(fq.Name), string(r.Name), nominal, borrow, lend)
 			}
 		}
 	}
@@ -366,7 +366,7 @@ func recordResourceMetrics(cq *kueue.ClusterQueue) {
 		fr := &cq.Status.FlavorsReservation[fri]
 		for ri := range fr.Resources {
 			r := &fr.Resources[ri]
-			metrics.ReportClusterQueueResourceReservations(cq.Spec.Cohort, cq.Name, string(fr.Name), string(r.Name), resource.QuantityToFloat(&r.Total))
+			metrics.ReportClusterQueueResourceReservations(cq.Spec.Cohort, *cq, string(fr.Name), string(r.Name), resource.QuantityToFloat(&r.Total))
 		}
 	}
 
@@ -374,7 +374,7 @@ func recordResourceMetrics(cq *kueue.ClusterQueue) {
 		fu := &cq.Status.FlavorsUsage[fui]
 		for ri := range fu.Resources {
 			r := &fu.Resources[ri]
-			metrics.ReportClusterQueueResourceUsage(cq.Spec.Cohort, cq.Name, string(fu.Name), string(r.Name), resource.QuantityToFloat(&r.Total))
+			metrics.ReportClusterQueueResourceUsage(cq.Spec.Cohort, *cq, string(fu.Name), string(r.Name), resource.QuantityToFloat(&r.Total))
 		}
 	}
 }
@@ -563,7 +563,7 @@ func (r *ClusterQueueReconciler) updateCqStatusIfChanged(
 	})
 	if r.fairSharingEnabled {
 		if r.reportResourceMetrics {
-			metrics.ReportClusterQueueWeightedShare(cq.Name, stats.WeightedShare)
+			metrics.ReportClusterQueueWeightedShare(*cq, stats.WeightedShare)
 		}
 		if cq.Status.FairSharing == nil {
 			cq.Status.FairSharing = &kueue.FairSharingStatus{}
