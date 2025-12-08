@@ -1,5 +1,6 @@
 version: 2
 updates:
+
   # Maintain dependencies for go in root
   - package-ecosystem: "gomod"
     directories:
@@ -20,6 +21,7 @@ updates:
       # Allow patches and security updates.
       - dependency-name: k8s.io/*
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
   # Maintain npm dependencies for site
   - package-ecosystem: "npm"
     directory: "/site"
@@ -33,7 +35,7 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    open-pull-requests-limit: 0
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -47,6 +49,7 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
   # Maintain Dockerfiles
   - package-ecosystem: "docker"
     directories:
@@ -60,6 +63,7 @@ updates:
     labels:
       - "ok-to-test"
       - "release-note-none"
+
   # Maintain go dependencies for KueueViz backend
   - package-ecosystem: "gomod"
     directories:
@@ -78,6 +82,7 @@ updates:
       # Allow patches and security updates.
       - dependency-name: k8s.io/*
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
   # Maintain npm dependencies for KueueViz frontend
   - package-ecosystem: "npm"
     directory: "/cmd/kueueviz/frontend"
@@ -94,7 +99,7 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    open-pull-requests-limit: 0
+
   # Maintain npm dependencies for KueueViz frontend cypress e2e tests
   - package-ecosystem: "npm"
     directory: "/test/e2e/kueueviz"
@@ -108,4 +113,3 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    open-pull-requests-limit: 0
