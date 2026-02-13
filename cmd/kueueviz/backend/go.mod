@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	k8s.io/api v0.35.0
-	k8s.io/apimachinery v0.35.0
+	k8s.io/apimachinery v0.35.1
 	k8s.io/client-go v0.35.0
 	sigs.k8s.io/controller-runtime v0.23.1
 	sigs.k8s.io/kueue v0.16.0
