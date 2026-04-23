@@ -2,6 +2,8 @@ module sigs.k8s.io/kueue/hack/tools
 
 go 1.25.0
 
+toolchain go1.26.2
+
 tool (
 	github.com/gohugoio/hugo
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
