@@ -2,6 +2,8 @@ module kueueviz
 
 go 1.25.0
 
+toolchain go1.26.2
+
 require (
 	github.com/bep/debounce v1.2.1
 	github.com/gin-contrib/cors v1.7.7
