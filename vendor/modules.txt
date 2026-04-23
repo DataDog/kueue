@@ -209,6 +209,9 @@ github.com/google/uuid
 # github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 ## explicit; go 1.20
 github.com/gorilla/websocket
+# github.com/grafana/regexp v0.0.0-20240518133315-a468a5bfb3bc
+## explicit; go 1.21
+github.com/grafana/regexp
 # github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 ## explicit
 github.com/gregjones/httpcache
@@ -377,8 +380,8 @@ github.com/prometheus/client_golang/prometheus/testutil/promlint/validations
 # github.com/prometheus/client_model v0.6.2
 ## explicit; go 1.22.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.67.5
-## explicit; go 1.24.0
+# github.com/prometheus/common v1.20.99
+## explicit; go 1.23.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.19.2
@@ -796,6 +799,9 @@ gopkg.in/inf.v0
 # gopkg.in/natefinch/lumberjack.v2 v2.2.1
 ## explicit; go 1.13
 gopkg.in/natefinch/lumberjack.v2
+# gopkg.in/yaml.v2 v2.4.0
+## explicit; go 1.15
+gopkg.in/yaml.v2
 # k8s.io/api v0.35.4
 ## explicit; go 1.25.0
 k8s.io/api/admission/v1
