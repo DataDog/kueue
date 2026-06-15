@@ -9,5 +9,13 @@
     "@testing-library/cypress": "^10.1.0",
     "cypress": "^15.14.0",
     "depcheck": "^1.4.7"
+  },
+  "overrides": {
+    "cypress": {
+      "qs": "^6.15.2"
+    },
+    "depcheck": {
+      "brace-expansion": "^2.0.3"
+    }
   }
 }
