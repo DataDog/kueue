@@ -1,0 +1,29 @@
+title: Admission Check Retry Config
+kep-number: 3258
+authors:
+  - "@dhenkel92"
+status: provisional
+creation-date: 2026-03-06
+reviewers:
+  - "@mimowo"
+  - "@PBundyra"
+approvers:
+  - TBD
+
+see-also:
+  - "/keps/3258-delayed-admission-check-retries"
+
+# The target maturity stage in the current dev cycle for this KEP.
+stage: alpha
+
+latest-milestone: TBD
+
+milestone:
+  alpha: TBD
+  beta: TBD
+  stable: TBD
+
+# No feature gate required — retryConfig is opt-in via the AdmissionCheck spec.
+feature-gates: []
+
+metrics: {}
