@@ -326,6 +326,10 @@ func (p *Pod) Run(ctx context.Context, c client.Client, wl *kueue.Workload, podS
 			return nil
 		}
 
+		if err := p.recordRayJobFirstAdmission(ctx, c, &p.pod, wl); err != nil {
+			return err
+		}
+
 		if err := clientutil.Patch(ctx, c, &p.pod, func() (bool, error) {
 			return true, prepare(log, &p.pod, podSetsInfo[0])
 		}); err != nil {
@@ -344,6 +348,10 @@ func (p *Pod) Run(ctx context.Context, c client.Client, wl *kueue.Workload, podS
 
 		if !isGated(pod) {
 			return nil
+		}
+
+		if err := p.recordRayJobFirstAdmission(ctx, c, pod, wl); err != nil {
+			return err
 		}
 
 		if err := clientutil.Patch(ctx, c, pod, func() (bool, error) {

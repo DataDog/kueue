@@ -27,6 +27,11 @@ import (
 )
 
 const (
+	// owner: @leslie-omonzane_ddog
+	//
+	// Record the first admission-release claim on explicitly opted-in Altair RayJobs.
+	RayJobFirstAdmissionTime featuregate.Feature = "RayJobFirstAdmissionTime"
+
 	// owner: @trasc
 	// kep: https://github.com/kubernetes-sigs/kueue/tree/main/keps/420-partial-admission
 	//
@@ -922,6 +927,9 @@ var defaultFeatureGateDependencies = map[featuregate.Feature][]featuregate.Featu
 // Entries are separated from each other with blank lines to avoid sweeping gofmt changes
 // when adding or removing one entry.
 var defaultVersionedFeatureGates = map[featuregate.Feature]featuregate.VersionedSpecs{
+	RayJobFirstAdmissionTime: {
+		{Version: version.MustParse("0.21"), Default: false, PreRelease: featuregate.Alpha},
+	},
 	PartialAdmission: {
 		{Version: version.MustParse("0.4"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("0.5"), Default: true, PreRelease: featuregate.Beta},
