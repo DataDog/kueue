@@ -183,6 +183,43 @@ func (p *Preemptor) GetTargetsWithStrategy(ctx context.Context, strategies iter.
 	return p.getTargets(ctx, strategies)
 }
 
+func (p *Preemptor) GetInQueueTargetsWithoutBorrowing(
+	ctx context.Context,
+	wl workload.Info,
+	snapshot *schdcache.Snapshot,
+	assignment flavorassigner.Assignment,
+) []*Target {
+	log := log.FromContext(ctx)
+	pCtx := p.buildContext(ctx, wl, assignment, snapshot)
+	for fr, quantity := range pCtx.workloadUsage.Quota.Assigned {
+		if quantity.Sign() > 0 {
+			pCtx.frsNeedPreemption.Insert(fr)
+		}
+	}
+	if workloadFits(ctx, pCtx, false) {
+		return nil
+	}
+	cq := pCtx.preemptorCQ
+	candidates := findCandidatesForPolicy(log, wl.Obj, cq.Workloads,
+		cq.Preemption.WithinClusterQueue, pCtx.frsNeedPreemption, p.workloadOrdering)
+	slices.SortFunc(candidates, p.candidatesOrdering(log, cq.Name))
+	evaluator := pCtx.configurableEvaluator.InClusterQueue(cq.Name)
+	candidateIter := func(yield func(*Target) bool) {
+		yieldClassic := policy.YieldFromSnapshot(snapshot, yield)
+		for _, candidate := range candidates {
+			if !yieldClassic(&Target{WorkloadInfo: candidate, WorkloadCq: cq, Reason: kueue.InClusterQueueReason}) {
+				return
+			}
+		}
+		evaluator.FindCandidates(snapshot, &pCtx.preemptor, pCtx.frsNeedPreemption,
+			func() bool { return workloadQuotaFits(pCtx, false) }, yield)
+	}
+	strategies := func(yield func(PreemptionStrategy) bool) {
+		yield(newPreemptionStrategy(candidateIter, false, pCtx))
+	}
+	return p.getTargets(ctx, strategies)
+}
+
 func (p *Preemptor) buildContext(
 	ctx context.Context,
 	wl workload.Info,
