@@ -47,13 +47,23 @@ import (
 // yield any candidate at all. A nil PreemptionEvaluator holds no rule, and therefore
 // never yields any candidate.
 type PreemptionEvaluator struct {
-	ctx    context.Context
-	log    logr.Logger
-	clock  clock.Clock
-	config kueuealpha.PreemptionConfig
+	ctx          context.Context
+	log          logr.Logger
+	clock        clock.Clock
+	config       kueuealpha.PreemptionConfig
+	clusterQueue kueue.ClusterQueueReference
 	// candidatesOrdering orders the candidates of a trigger from the most to the
 	// least preferred one.
 	candidatesOrdering func(a, b *workload.Info) int
+}
+
+func (p *PreemptionEvaluator) InClusterQueue(name kueue.ClusterQueueReference) *PreemptionEvaluator {
+	if p == nil {
+		return nil
+	}
+	scoped := *p
+	scoped.clusterQueue = name
+	return &scoped
 }
 
 // NewPreemptionEvaluator returns the PreemptionEvaluator for the given PreemptionConfig,
@@ -310,6 +320,9 @@ func (p *PreemptionEvaluator) addMatchingCandidates(
 	selectorIndex int,
 ) {
 	for _, targetCq := range snapshot.ClusterQueues() {
+		if p.clusterQueue != "" && targetCq.Name != p.clusterQueue {
+			continue
+		}
 		if !matchesClusterQueue(filter, targetCq) {
 			continue
 		}

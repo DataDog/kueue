@@ -18,10 +18,12 @@ package native
 
 import (
 	"context"
+	"maps"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	kueue "sigs.k8s.io/kueue/apis/kueue/v1beta2"
 	schdcache "sigs.k8s.io/kueue/pkg/cache/scheduler"
 	"sigs.k8s.io/kueue/pkg/features"
 	"sigs.k8s.io/kueue/pkg/scheduler/assignment"
@@ -62,6 +64,12 @@ func (p *nativePlanner) Plan(ctx context.Context, asgn *flavorassigner.Assignmen
 	}
 
 	arm := asgn.RepresentativeMode()
+	if arm == flavorassigner.Fit && asgn.RequiresBorrowing() && features.Enabled(features.FlavorFungibility) &&
+		cq.FlavorFungibility.Preference != nil && *cq.FlavorFungibility.Preference == kueue.PreemptionOverBorrowing {
+		if preferred, ok := p.preferredInQueuePlan(ctx, asgn); ok {
+			return preferred
+		}
+	}
 
 	if arm == flavorassigner.Preempt {
 		strategies := p.preemptor.GetPreemptionStrategyIterator(ctx, *p.wl, p.snapshot, *asgn)
@@ -76,6 +84,60 @@ func (p *nativePlanner) Plan(ctx context.Context, asgn *flavorassigner.Assignmen
 	p.updateAssignmentForTAS(ctx, cq, asgn, nil)
 	resolveNoFit(asgn, cq)
 	return assignment.Plan{Assignment: asgn, PreemptionTargets: nil}
+}
+
+func (p *nativePlanner) preferredInQueuePlan(ctx context.Context, initial *flavorassigner.Assignment) (assignment.Plan, bool) {
+	log := log.FromContext(ctx)
+	targets := p.preemptor.GetInQueueTargetsWithoutBorrowing(ctx, *p.wl, p.snapshot, *initial)
+	if len(targets) == 0 {
+		return assignment.Plan{}, false
+	}
+	workloads := make([]*workload.Info, len(targets))
+	for i, target := range targets {
+		workloads[i] = target.WorkloadInfo
+	}
+	restoreUsage := p.snapshot.SimulateWorkloadRemoval(workloads)
+	defer restoreUsage()
+	restorePods := p.snapshot.SimulatePodRemoval(ctx, log, workloads)
+	defer restorePods()
+	counts := make([]int32, len(p.wl.Obj.Spec.PodSets))
+	for i, ps := range p.wl.Obj.Spec.PodSets {
+		for _, assigned := range initial.PodSets {
+			if assigned.Name == ps.Name {
+				counts[i] = assigned.Count
+				break
+			}
+		}
+	}
+	alternate := p.assigner.AssignFlavors(ctx, log, counts)
+	if alternate.RepresentativeMode() != flavorassigner.Fit || alternate.RequiresBorrowing() ||
+		!sameFlavors(initial, &alternate) {
+		return assignment.Plan{}, false
+	}
+	p.assigner.AssignTopology(ctx, log, &alternate)
+	if alternate.RepresentativeMode() != flavorassigner.Fit {
+		return assignment.Plan{}, false
+	}
+	alternate.SetRepresentativeMode(flavorassigner.Preempt)
+	*initial = alternate
+	return assignment.Plan{Assignment: initial, PreemptionTargets: targets}, true
+}
+
+func sameFlavors(a, b *flavorassigner.Assignment) bool {
+	if len(a.PodSets) != len(b.PodSets) {
+		return false
+	}
+	byName := make(map[kueue.PodSetReference]flavorassigner.ResourceAssignment, len(a.PodSets))
+	for _, ps := range a.PodSets {
+		byName[ps.Name] = ps.Flavors
+	}
+	for _, ps := range b.PodSets {
+		original, found := byName[ps.Name]
+		if !found || !maps.EqualFunc(original, ps.Flavors, func(a, b *flavorassigner.FlavorAssignment) bool { return a.Name == b.Name }) {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *nativePlanner) updateAssignmentForTAS(
